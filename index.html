@@ -1,68 +1,185 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>WebBash RAW File Viewer</title>
-<style>
-body {
-  font-family: "Segoe UI", sans-serif;
-  background: #f7f7f7;
-  padding: 2rem;
-}
-h1 { color: #222; margin-bottom: 1rem; }
-ul { list-style: none; padding: 0; }
-li {
-  background: #fff;
-  margin: 5px 0;
-  padding: 10px 12px;
-  border-radius: 8px;
-  box-shadow: 0 0 4px rgba(0,0,0,0.1);
-}
-a {
-  text-decoration: none;
-  color: #007bff;
-  font-weight: 500;
-}
-a:hover { text-decoration: underline; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebBash Repository File Browser (RAW表示)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Tailwind CSSをベースに、リストアイテムのスタイルを微調整 */
+        .container {
+            max-width: 900px;
+        }
+        .item {
+            cursor: pointer;
+            transition: all 0.1s ease-in-out;
+            display: flex;
+            align-items: center;
+        }
+        .item:hover {
+            transform: translateX(3px);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .dir {
+            font-weight: 600;
+        }
+    </style>
 </head>
-<body>
-  <h1>📄 WebBash RAW ファイル一覧</h1>
-  <ul id="list"></ul>
+<body class="bg-gray-100 p-4 sm:p-8 font-sans">
 
-  <script>
-  const user = "pipocorp-japan";
-  const repo = "WebBash";
-  const branch = "main"; // ← PagesがmainブランチならこれでOK
-  const baseRaw = `https://raw.githubusercontent.com/${user}/${repo}/${branch}/`;
+<div class="container mx-auto bg-white p-6 sm:p-10 rounded-xl shadow-2xl">
+    <h1 class="text-3xl font-extrabold text-blue-800 border-b-4 border-blue-400 pb-3 mb-6">
+        WebBash リポジトリ ファイルブラウザ
+    </h1>
 
-  async function loadFiles() {
-    const apiURL = `https://api.github.com/repos/${user}/${repo}/contents/`;
-    const list = document.getElementById("list");
-    list.innerHTML = "<li>読み込み中...</li>";
+    <div id="path" class="text-lg font-mono text-gray-700 bg-blue-50 p-3 rounded-lg mb-6 shadow-inner">
+        Loading...
+    </div>
 
-    try {
-      const res = await fetch(apiURL);
-      const data = await res.json();
+    <h2 class="text-2xl font-semibold text-gray-700 mb-4">ファイル/フォルダ一覧</h2>
+    
+    <!-- ファイルリストコンテナ -->
+    <div id="file-list" class="space-y-2">
+        <p class="text-gray-500">コンテンツをロード中...</p>
+    </div>
+    
+    <div class="mt-8 pt-4 border-t border-gray-200 text-sm text-gray-500">
+        ※ **HTMLファイル**をクリックすると、**ウェブページとして**開きます。その他のファイルはRAWコンテンツとして開きます。フォルダをクリックすると、その階層へ移動します。
+    </div>
+</div>
 
-      list.innerHTML = "";
-      data.forEach(item => {
-        const li = document.createElement("li");
-        const a = document.createElement("a");
+<script>
+    const REPO_OWNER = 'pipocorp-japan';
+    const REPO_NAME = 'WebBash';
+    // GitHub Contents APIのエンドポイント
+    const API_URL = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/`;
 
-        // RAWファイルのURLを設定
-        a.href = baseRaw + encodeURIComponent(item.name);
-        a.textContent = item.name + (item.type === "dir" ? "/" : "");
-        a.target = "_blank"; // 新しいタブで開く
-        li.appendChild(a);
-        list.appendChild(li);
-      });
-    } catch (e) {
-      list.innerHTML = `<li>⚠️ エラー: ${e}</li>`;
+    const fileListElement = document.getElementById('file-list');
+    const pathElement = document.getElementById('path');
+    let currentPath = '';
+    
+    /**
+     * GitHub APIから指定されたパスのコンテンツをフェッチし、表示を更新します。
+     * @param {string} path - リポジトリ内のパス
+     */
+    async function fetchContents(path) {
+        currentPath = path;
+        pathElement.textContent = `現在のパス: /${currentPath}`;
+        fileListElement.innerHTML = '<div class="flex items-center space-x-2 text-blue-600"><svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>コンテンツをロード中...</span></div>';
+
+        const url = API_URL + path;
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                // APIレートリミットなどエラーの場合
+                throw new Error(`HTTPエラー! ステータス: ${response.status}。GitHub APIのレートリミットに達した可能性があります。`);
+            }
+            const data = await response.json();
+            // 配列であることを確認
+            if (Array.isArray(data)) {
+                 renderList(data, path);
+            } else {
+                 throw new Error("APIから予期しないデータ形式が返されました。");
+            }
+           
+        } catch (error) {
+            fileListElement.innerHTML = `<p class="text-red-500 p-3 bg-red-100 rounded-lg">コンテンツの取得中にエラーが発生しました: ${error.message}</p>`;
+            console.error(error);
+        }
     }
-  }
 
-  loadFiles();
-  </script>
+    /**
+     * 取得したファイル/フォルダリストを表示します。
+     * @param {Array<Object>} data - GitHub APIから取得したアイテムの配列
+     * @param {string} path - 現在のパス
+     */
+    function renderList(data, path) {
+        fileListElement.innerHTML = ''; // リストをクリア
+
+        // 1. 階層を上がるためのリンク (カレントディレクトリがルートでない場合)
+        if (path) {
+            const upPath = path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : '';
+            const upLink = createListItem('.. (親ディレクトリ)', 'dir', upPath);
+            fileListElement.appendChild(upLink);
+        }
+
+        // 2. ディレクトリとファイルをソート (ディレクトリ優先、その後アルファベット順)
+        data.sort((a, b) => {
+            if (a.type === 'dir' && b.type !== 'dir') return -1;
+            if (a.type !== 'dir' && b.type === 'dir') return 1;
+            return a.name.localeCompare(b.name);
+        });
+
+        // 3. ファイルとフォルダのリスト表示
+        data.forEach(item => {
+            const itemPath = path ? `${path}/${item.name}` : item.name;
+            const listItem = createListItem(item.name, item.type, itemPath, item.download_url);
+            fileListElement.appendChild(listItem);
+        });
+    }
+
+    /**
+     * リストアイテム (ファイルまたはフォルダ) のDOM要素を作成します。
+     * @param {string} name - ファイル/フォルダ名
+     * @param {string} type - 'file' または 'dir'
+     * @param {string} path - リポジトリのルートからの相対パス (例: 'src/main.js')
+     * @param {string} downloadUrl - RAWファイルへの直接リンク
+     */
+    function createListItem(name, type, path, downloadUrl = null) {
+        const div = document.createElement('div');
+        
+        // Tailwindクラスでスタイリング
+        div.classList.add('item', type, 'p-3', 'rounded-lg', 'border', 'border-gray-200');
+
+        let icon = '';
+        let textColor = 'text-gray-800';
+
+        if (type === 'dir') {
+            icon = '📁';
+            textColor = 'text-green-700';
+            div.classList.add('bg-green-50', 'hover:bg-green-100');
+        } else if (name === '.. (親ディレクトリ)') {
+            icon = '⤴️';
+            textColor = 'text-blue-700';
+            div.classList.add('bg-blue-50', 'hover:bg-blue-100');
+        } else {
+            icon = '📄';
+            textColor = 'text-gray-800';
+            div.classList.add('bg-white', 'hover:bg-gray-50');
+        }
+
+        div.innerHTML = `<span class="text-xl mr-3">${icon}</span> <span class="${textColor} text-base">${name}</span>`;
+
+        div.onclick = (e) => {
+            e.preventDefault();
+            if (type === 'dir' || name === '.. (親ディレクトリ)') {
+                // フォルダの場合: 新しい階層をフェッチ
+                fetchContents(path);
+            } else if (type === 'file') {
+                // ファイルの場合: 処理を分岐
+                const isHtml = name.toLowerCase().endsWith('.html') || name.toLowerCase().endsWith('.htm');
+                
+                if (isHtml) {
+                    // HTMLファイルの場合: GitHub Pages URLを構築し、レンダリングして開く
+                    // pathは "dir/filename.html" の形式になっている
+                    const REPO_HOST_URL = `https://${REPO_OWNER}.github.io/${REPO_NAME}/`;
+                    const renderUrl = REPO_HOST_URL + path;
+                    window.open(renderUrl, '_blank');
+                } else if (downloadUrl) {
+                    // その他のファイルの場合: RAWコンテンツを新しいタブで開く
+                    window.open(downloadUrl, '_blank');
+                }
+            }
+        };
+        return div;
+    }
+
+    // 初期化: ルートディレクトリをロード
+    window.onload = function() {
+        fetchContents('');
+    };
+</script>
+
 </body>
 </html>

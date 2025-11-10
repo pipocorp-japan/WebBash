@@ -2,21 +2,15 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>WebBash Repo Viewer</title>
+<title>WebBash ファイルビューア</title>
 <style>
 body {
   font-family: "Segoe UI", sans-serif;
   background: #f7f7f7;
   padding: 2rem;
 }
-h1 {
-  color: #222;
-  margin-bottom: 1rem;
-}
-ul {
-  list-style: none;
-  padding: 0;
-}
+h1 { color: #222; margin-bottom: 1rem; }
+ul { list-style: none; padding: 0; }
 li {
   background: #fff;
   margin: 5px 0;
@@ -29,22 +23,20 @@ a {
   color: #007bff;
   font-weight: 500;
 }
-a:hover {
-  text-decoration: underline;
-}
+a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
-  <h1>📂 WebBash リポジトリ一覧</h1>
+  <h1>📂 WebBash リポジトリ内ファイル</h1>
   <ul id="list"></ul>
 
   <script>
   const user = "pipocorp-japan";
   const repo = "WebBash";
-  const path = ""; // サブフォルダ指定したいときは "src" とか入れる
+  const baseURL = `https://${user}.github.io/${repo}/`; // ← GitHub PagesのURL
 
   async function loadFiles() {
-    const apiURL = `https://api.github.com/repos/${user}/${repo}/contents/${path}`;
+    const apiURL = `https://api.github.com/repos/${user}/${repo}/contents/`;
     const list = document.getElementById("list");
     list.innerHTML = "<li>読み込み中...</li>";
 
@@ -56,7 +48,8 @@ a:hover {
       data.forEach(item => {
         const li = document.createElement("li");
         const a = document.createElement("a");
-        a.href = item.html_url;
+        // GitHubページじゃなく、自分のサイト内のURLにする
+        a.href = baseURL + encodeURIComponent(item.name);
         a.textContent = item.name + (item.type === "dir" ? "/" : "");
         li.appendChild(a);
         list.appendChild(li);

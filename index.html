@@ -2,66 +2,71 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>ディレクトリ一覧</title>
+<title>WebBash Repo Viewer</title>
 <style>
-  body {
-    font-family: sans-serif;
-    background: #f4f4f4;
-    padding: 2rem;
-  }
-  h1 {
-    margin-bottom: 1rem;
-  }
-  ul {
-    list-style: none;
-    padding: 0;
-  }
-  li {
-    background: #fff;
-    margin: 4px 0;
-    padding: 8px 12px;
-    border-radius: 6px;
-    box-shadow: 0 0 3px rgba(0,0,0,0.1);
-  }
-  a {
-    text-decoration: none;
-    color: #007bff;
-  }
-  a:hover {
-    text-decoration: underline;
-  }
+body {
+  font-family: "Segoe UI", sans-serif;
+  background: #f7f7f7;
+  padding: 2rem;
+}
+h1 {
+  color: #222;
+  margin-bottom: 1rem;
+}
+ul {
+  list-style: none;
+  padding: 0;
+}
+li {
+  background: #fff;
+  margin: 5px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  box-shadow: 0 0 4px rgba(0,0,0,0.1);
+}
+a {
+  text-decoration: none;
+  color: #007bff;
+  font-weight: 500;
+}
+a:hover {
+  text-decoration: underline;
+}
 </style>
 </head>
 <body>
-  <h1>📁 ファイル一覧</h1>
+  <h1>📂 WebBash リポジトリ一覧</h1>
   <ul id="list"></ul>
 
   <script>
-    async function loadFiles() {
-      try {
-        const res = await fetch('.');
-        const text = await res.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(text, 'text/html');
-        const links = [...doc.querySelectorAll('a')];
+  const user = "pipocorp-japan";
+  const repo = "WebBash";
+  const path = ""; // サブフォルダ指定したいときは "src" とか入れる
 
-        const list = document.getElementById('list');
-        links.forEach(a => {
-          if (a.href.includes('?') || a.textContent === '../') return;
-          const li = document.createElement('li');
-          const link = document.createElement('a');
-          link.href = a.getAttribute('href');
-          link.textContent = a.textContent;
-          li.appendChild(link);
-          list.appendChild(li);
-        });
-      } catch (err) {
-        document.getElementById('list').innerHTML =
-          `<li>⚠️ ファイル一覧を取得できません (${err})</li>`;
-      }
+  async function loadFiles() {
+    const apiURL = `https://api.github.com/repos/${user}/${repo}/contents/${path}`;
+    const list = document.getElementById("list");
+    list.innerHTML = "<li>読み込み中...</li>";
+
+    try {
+      const res = await fetch(apiURL);
+      const data = await res.json();
+
+      list.innerHTML = "";
+      data.forEach(item => {
+        const li = document.createElement("li");
+        const a = document.createElement("a");
+        a.href = item.html_url;
+        a.textContent = item.name + (item.type === "dir" ? "/" : "");
+        li.appendChild(a);
+        list.appendChild(li);
+      });
+    } catch (e) {
+      list.innerHTML = `<li>⚠️ エラー: ${e}</li>`;
     }
+  }
 
-    loadFiles();
+  loadFiles();
   </script>
 </body>
 </html>

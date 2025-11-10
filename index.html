@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>WebBash ファイルビューア</title>
+<title>WebBash RAW File Viewer</title>
 <style>
 body {
   font-family: "Segoe UI", sans-serif;
@@ -27,13 +27,14 @@ a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
-  <h1>📂 WebBash リポジトリ内ファイル</h1>
+  <h1>📄 WebBash RAW ファイル一覧</h1>
   <ul id="list"></ul>
 
   <script>
   const user = "pipocorp-japan";
   const repo = "WebBash";
-  const baseURL = `https://${user}.github.io/${repo}/`; // ← GitHub PagesのURL
+  const branch = "main"; // ← PagesがmainブランチならこれでOK
+  const baseRaw = `https://raw.githubusercontent.com/${user}/${repo}/${branch}/`;
 
   async function loadFiles() {
     const apiURL = `https://api.github.com/repos/${user}/${repo}/contents/`;
@@ -48,9 +49,11 @@ a:hover { text-decoration: underline; }
       data.forEach(item => {
         const li = document.createElement("li");
         const a = document.createElement("a");
-        // GitHubページじゃなく、自分のサイト内のURLにする
-        a.href = baseURL + encodeURIComponent(item.name);
+
+        // RAWファイルのURLを設定
+        a.href = baseRaw + encodeURIComponent(item.name);
         a.textContent = item.name + (item.type === "dir" ? "/" : "");
+        a.target = "_blank"; // 新しいタブで開く
         li.appendChild(a);
         list.appendChild(li);
       });
